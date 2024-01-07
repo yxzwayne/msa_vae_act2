@@ -16,6 +16,16 @@ venv/
 # Logs and databases
 *.log
 *.sqlite
+*.csv
+*.pkl
+# model file may be up to your scrutiny.
 
 # Environment variables
 .env
+
+# Large data files
+*/*.seqs
+
+# compiled code files
+*.so
+build/
