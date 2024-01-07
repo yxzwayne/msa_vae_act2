@@ -27,6 +27,7 @@ from keras.callbacks import EarlyStopping, CSVLogger
 from keras.layers import LayerNormalization
 
 from tensorflow.python.framework.ops import disable_eager_execution
+
 disable_eager_execution()
 
 # ALPHA="XILVAGMFYWEDQNHCRKSTPBZ-"[::-1]  # alphabet in previous impls.
@@ -317,29 +318,6 @@ class sVAE(Base_VAE):
         ]
 
         return enc_layers, dec_layers
-
-
-# class Deep_VAE(Base_VAE):
-#     def __init__(self):
-#         super().__init__()
-
-#     def _enc_dec_layers(self, L, q, latent_dim, batch_size, depth):
-#         self.batch_size, self.latent_dim = batch_size, latent_dim
-#         Lq = L * q
-#         depth = int(depth)
-
-#         enc_layers = []
-#         for d in range(depth):
-#             enc_layers.append(Dense(Lq // (2 ** (d + 1)), activation="elu"))
-#             if d % 2 == 0:
-#                 enc_layers.append(LayerNormalization())
-#         dec_layers = []
-#         for d in range(depth)[::-1]:
-#             dec_layers.append(Dense(Lq // (2 ** (d + 1)), activation="elu"))
-#             if d % 2 == 0:
-#                 dec_layers.append(LayerNormalization())
-
-#         return enc_layers, dec_layers
 
 
 class DeepSequence(Base_VAE):
