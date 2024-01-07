@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+
+# This code is from https://github.com/ahaldane/MSA_VAE
+# with some changes to the DeepVAE definition to attempt to replicate DeepSequence
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -23,7 +27,6 @@ from keras.callbacks import EarlyStopping, CSVLogger
 from keras.layers import LayerNormalization
 
 from tensorflow.python.framework.ops import disable_eager_execution
-
 disable_eager_execution()
 
 # ALPHA="XILVAGMFYWEDQNHCRKSTPBZ-"[::-1]  # alphabet in previous impls.
@@ -684,10 +687,8 @@ def main_train(name, args):
     # np.random.seed(256)
     batch_size = args.batch_size
     # inner_dim = args.inner_dim
-
-    # assert(N%batch_size == 0)
     n_batches = N // batch_size
-    validation_batches = int(n_batches * 0.1)
+    validation_batches = int(n_batches * 0.2)
     train_seqs = seqs[: -validation_batches * batch_size]
     val_seqs = seqs[-validation_batches * batch_size :]
     TVDseqs = None
