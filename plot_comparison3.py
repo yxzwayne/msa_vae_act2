@@ -2,12 +2,13 @@
 import pandas as pd
 import h5py, re, sys
 import numpy as np
-from scipy.stats import spearmanr,pearsonr
+from scipy.stats import spearmanr
 from scipy.interpolate import UnivariateSpline
 from pylab import *
 
-threshold=float(sys.argv[1])
-marg_store='multimarg/drug_naive/PI/PI.h5'
+# threshold=float(sys.argv[1])
+threshold = 0.02
+marg_store='PI.h5'
 #marg_store='../pairwise_nonPI.h5'
 #marg_store='../multimarg_0.02.h5'
 orders=np.arange(2,14)
@@ -23,7 +24,7 @@ with pd.HDFStore(marg_store) as store:
         #if d.data>0: 
         gg=(store[o]['data']) 
         gg2=(store[o]['indep']) 
-        gg3=(store[o]['potts']) 
+        gg3=(store[o]['model']) 
         gg4=(store[o]['repnum']) 
         
         g=np.vstack((gg,gg2,gg3,gg4)).T
