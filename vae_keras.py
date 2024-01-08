@@ -3,6 +3,7 @@
 # This code is from https://github.com/ahaldane/MSA_VAE
 # with some changes to the DeepVAE definition to attempt to replicate DeepSequence
 
+#!/usr/bin/env python
 import matplotlib
 
 matplotlib.use("Agg")
@@ -18,18 +19,19 @@ from seqtools import histsim
 
 import keras
 from keras.models import Model
+from keras import regularizers
 from keras.layers import Input, Dense, Lambda, Dropout, Activation
 from keras import backend as K
 from keras.losses import BinaryCrossentropy
 
-bce = BinaryCrossentropy()
 from keras.callbacks import EarlyStopping, CSVLogger
-from keras.layers import LayerNormalization
+from keras.layers.normalization import BatchNormalization
 
 from tensorflow.python.framework.ops import disable_eager_execution
 
 disable_eager_execution()
 
+bce = BinaryCrossentropy()
 # ALPHA="XILVAGMFYWEDQNHCRKSTPBZ-"[::-1]  # alphabet in previous impls.
 # ALPHA = "-ACDEFGHIKLMNPQRSTVWY"
 ALPHA = "ABCD"
@@ -45,6 +47,7 @@ class OneHot_Generator(keras.utils.Sequence):
     def __init__(self, seqs, batch_size):
         self.seqs = seqs
         self.batch_size = batch_size
+        assert seqs.shape[0] % batch_size == 0
 
     def __len__(self):
         return self.seqs.shape[0] // self.batch_size
@@ -175,6 +178,11 @@ class Base_VAE:
 
     def _vae_loss(self, x, x_decoded_mean, **kwarg):
         zm, zlv = self.z_mean, self.z_log_var
+        # Original Church code has a prefactor of Lq, which does not appear
+        # in the Kingman & welling VAE formulation and leads to non-unit var.
+        # It may have been copied from the fchollet example code
+        # Lq = self.L*self.q
+        # xent_loss = Lq * categorical_crossentropy(x,  x_decoded_mean)
         xent_loss = bce(x, x_decoded_mean)
         kl_loss = 0.5 * K.sum(1 + zlv - K.square(zm) - K.exp(zlv), axis=-1)
         return xent_loss - kl_loss
@@ -277,7 +285,7 @@ class Base_VAE:
 
     def generate(self, N):
         # returns a generator yielding sequences in batches
-        # assert(N % self.batch_size == 0)
+        assert N % self.batch_size == 0
 
         print("")
         for n in range(N // self.batch_size):
@@ -304,9 +312,9 @@ class sVAE(Base_VAE):
 
         enc_layers = [
             Dense(inner_dim, activation="elu"),
-            LayerNormalization(),
-            Dense(inner_dim, activation="elu"),
             Dropout(0.3),
+            Dense(inner_dim, activation="elu"),
+            BatchNormalization(),
             Dense(inner_dim, activation="elu"),
         ]
 
@@ -320,25 +328,6 @@ class sVAE(Base_VAE):
         return enc_layers, dec_layers
 
 
-class DeepSequence(Base_VAE):
-    def __init__(self):
-        super().__init__()
-
-    def _enc_dec_layers(self, L, q, latent_dim, batch_size):
-        self.batch_size, self.latent_dim = batch_size, latent_dim
-        Lq = L * q
-        enc_layers = [
-            Dense(1500, activation="elu"),
-            Dense(1500, activation="elu"),
-        ]
-        dec_layers = [
-            Dense(100, activation="elu"),
-            Dense(500, activation="elu"),
-        ]
-        return enc_layers, dec_layers
-
-
-# Haldane Implementation
 class Deep_VAE(Base_VAE):
     def __init__(self):
         super().__init__()
@@ -369,7 +358,7 @@ class test_VAE(Base_VAE):
             Dense(Lq // 2, activation="elu"),
             # Dropout(0.3),
             Dense(Lq // 4, activation="elu"),
-            LayerNormalization(),
+            BatchNormalization(),
             Dense(Lq // 8, activation="elu"),
         ]
 
@@ -383,12 +372,7 @@ class test_VAE(Base_VAE):
         return enc_layers, dec_layers
 
 
-vaes = {
-    "test_VAE": test_VAE,
-    "sVAE": sVAE,
-    "Deep_VAE": Deep_VAE,
-    "DeepSequence": DeepSequence,
-}
+vaes = {"test_VAE": test_VAE, "sVAE": sVAE, "Deep_VAE": Deep_VAE}
 
 
 def loadVAE(name):
@@ -665,8 +649,10 @@ def main_train(name, args):
     # np.random.seed(256)
     batch_size = args.batch_size
     # inner_dim = args.inner_dim
+
+    assert N % batch_size == 0
     n_batches = N // batch_size
-    validation_batches = int(n_batches * 0.2)
+    validation_batches = int(n_batches * 0.1)
     train_seqs = seqs[: -validation_batches * batch_size]
     val_seqs = seqs[-validation_batches * batch_size :]
     TVDseqs = None

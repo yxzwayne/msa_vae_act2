@@ -39,8 +39,8 @@ gen_size=1048576
 # ====== Deep_VAE from Haldane ======
 
 echo -e "\n\nTrain"
-python vae_keras.py deepVAE_Haldane_latent8 train Deep_VAE $seq_file 8 5 --epoch 4
+python vae_keras.py deepVAE_norm train DeepVAENorm $seq_file 8 5 --epoch 6
 echo -e "\n\nPlot latent"
-python vae_keras.py deepVAE_Haldane_latent8 plot_latent $seq_file
+python vae_keras.py deepVAE_norm plot_latent $seq_file
 echo -e "\n\n===== Generating sequences"
-python vae_keras.py deepVAE_Haldane_latent8 gen $gen_size -o gen_deepVAE_Haldane_latent8
+python vae_keras.py deepVAE_norm gen $gen_size -o ../seq/gen_dVAE_norm.seqs
