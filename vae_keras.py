@@ -25,7 +25,7 @@ from keras import backend as K
 from keras.losses import BinaryCrossentropy
 
 from keras.callbacks import EarlyStopping, CSVLogger
-from keras.layers.normalization import BatchNormalization
+from keras.layers import BatchNormalization
 
 from tensorflow.python.framework.ops import disable_eager_execution
 
@@ -47,7 +47,6 @@ class OneHot_Generator(keras.utils.Sequence):
     def __init__(self, seqs, batch_size):
         self.seqs = seqs
         self.batch_size = batch_size
-        assert seqs.shape[0] % batch_size == 0
 
     def __len__(self):
         return self.seqs.shape[0] // self.batch_size
@@ -285,7 +284,6 @@ class Base_VAE:
 
     def generate(self, N):
         # returns a generator yielding sequences in batches
-        assert N % self.batch_size == 0
 
         print("")
         for n in range(N // self.batch_size):
@@ -643,6 +641,7 @@ def main_train(name, args):
     latent_dim = args.latent_dim
     seqs = loadSeqs(args.seqs, alpha=ALPHA)[0]
     N, L = seqs.shape
+    print("N = {}".format(N))
     print("L = {}".format(L))
 
     # np.random.seed(42)
@@ -650,9 +649,8 @@ def main_train(name, args):
     batch_size = args.batch_size
     # inner_dim = args.inner_dim
 
-    assert N % batch_size == 0
-    n_batches = N // batch_size
-    validation_batches = int(n_batches * 0.1)
+    n_batches = (N // batch_size) + 1
+    validation_batches = int(n_batches * 0.2)
     train_seqs = seqs[: -validation_batches * batch_size]
     val_seqs = seqs[-validation_batches * batch_size :]
     TVDseqs = None

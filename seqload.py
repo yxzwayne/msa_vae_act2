@@ -4,8 +4,10 @@ import sys, os
 import json, bz2, io
 from pathlib import Path
 
-alpha21 = '-ACDEFGHIKLMNPQRSTVWY'
-prot_alpha = alpha21.encode('ascii')
+# alphabet21 = '-ACDEFGHIKLMNPQRSTVWY'
+alphabet_reduced = "ABCD"
+prot_alpha = alphabet_reduced.encode("ascii")
+
 
 class Opener:
     """
@@ -32,7 +34,7 @@ class Opener:
             compression. If False, don't compress.
         """
         self.fileobj = fileobj
-        if rw.rstrip('b') not in "rwa":
+        if rw.rstrip("b") not in "rwa":
             raise Exception("File mode must be r,w, or a")
         self.rw = rw
         self.f = None
@@ -40,25 +42,25 @@ class Opener:
 
     def __enter__(self):
         if isinstance(self.fileobj, (str, Path)):
-            rw = self.rw.strip('b').rstrip('t')
-            if rw in 'ra' and self.zipf is not False:
+            rw = self.rw.strip("b").rstrip("t")
+            if rw in "ra" and self.zipf is not False:
                 magic = b"\x42\x5a\x68"  # for bz2
-                with open(self.fileobj, rw + 'b') as f:
+                with open(self.fileobj, rw + "b") as f:
                     start = f.read(len(magic))
                 if start == magic:
-                    self.f = bz2.BZ2File(self.fileobj, rw+'b')
+                    self.f = bz2.BZ2File(self.fileobj, rw + "b")
                 elif self.zipf is True:
                     raise Exception("bz2 file expected")
-            elif rw == 'w' and self.zipf:
-                self.f = bz2.BZ2File(self.fileobj, rw+'b')
+            elif rw == "w" and self.zipf:
+                self.f = bz2.BZ2File(self.fileobj, rw + "b")
 
             if self.f is None:
-                self.f = open(self.fileobj, rw + 'b', buffering=0)
+                self.f = open(self.fileobj, rw + "b", buffering=0)
 
             return self.f
 
-        elif hasattr(self.fileobj, 'read') or hasattr(self.fileobj, 'write'):
-            if self.rw != self.fileobj.mode: #error? XXX
+        elif hasattr(self.fileobj, "read") or hasattr(self.fileobj, "write"):
+            if self.rw != self.fileobj.mode:  # error? XXX
                 self.fileobj = os.fdopen(self.fileobj.fileno(), self.rw)
             return self.fileobj
         else:
@@ -68,6 +70,7 @@ class Opener:
         if self.f != None:
             self.f.close()
         return False
+
 
 def loadSeqs(fn, alpha=prot_alpha, zipf=None):
     """
@@ -116,6 +119,7 @@ def loadSeqs(fn, alpha=prot_alpha, zipf=None):
 
     return seqs, ids, headers
 
+
 def mapSeqs(fn, mapper, alpha=prot_alpha, zipf=None):
     """
     Load sequence from a file and process them with a mapping function.
@@ -142,8 +146,9 @@ def mapSeqs(fn, mapper, alpha=prot_alpha, zipf=None):
     with Opener(fn) as f:
         gen = loadSeqsChunked(f, alpha)
         headers, alpha = next(gen)
-        seqs = np.concatenate([mapper(s, (i, headers)) for s,i in gen])
+        seqs = np.concatenate([mapper(s, (i, headers)) for s, i in gen])
     return seqs, headers
+
 
 def reduceSeqs(fn, reduce_func, startval=None, alpha=prot_alpha):
     """
@@ -153,47 +158,58 @@ def reduceSeqs(fn, reduce_func, startval=None, alpha=prot_alpha):
         gen = loadSeqsChunked(f, alpha)
         headers, alpha = next(gen)
         val = startval if startval != None else next(gen)
-        for s,i in gen:
+        for s, i in gen:
             val = reduce_func(val, s, i, headers, alpha)
     return val, headers
+
 
 def readbytes(f, count, buf=None):
     # efficiently read binary data
     if buf is None:
         buf = np.empty(count, dtype=np.uint8)
-    elif buf.size*buf.itemsize < count:
-        raise ValueError("buf must be at least {} bytes, got {}".format(count,
-                                                        buf.size*buf.itemsize))
-    return buf[:f.readinto(buf) or 0]
+    elif buf.size * buf.itemsize < count:
+        raise ValueError(
+            "buf must be at least {} bytes, got {}".format(
+                count, buf.size * buf.itemsize
+            )
+        )
+    return buf[: f.readinto(buf) or 0]
+
 
 def chunk_firstpass(dat, idL, lineL, pos):
-    if dat.size%(lineL+1) != 0:  # +1 for newline
-        raise ValueError('internal error: dat size must be multiple of L')
-    dat = dat.reshape((dat.size//(lineL+1), lineL+1))
+    if dat.size % (lineL + 1) != 0:  # +1 for newline
+        raise ValueError("internal error: dat size must be multiple of L")
+    dat = dat.reshape((dat.size // (lineL + 1), lineL + 1))
 
-    badlines = np.where(dat[:,-1] != ord('\n'))[0]
+    badlines = np.where(dat[:, -1] != ord("\n"))[0]
     if len(badlines) != 0:
-        raise ValueError("Sequence {} has wrong length (expected {})".format(
-                          pos + 1 + badlines[0], lineL))
-    dat = dat[:,:-1]
+        raise ValueError(
+            "Sequence {} has wrong length (expected {})".format(
+                pos + 1 + badlines[0], lineL
+            )
+        )
+    dat = dat[:, :-1]
 
     ids = None
     if idL != 0:
-        ids, dat = dat[:,:idL], dat[:,idL:]
+        ids, dat = dat[:, :idL], dat[:, idL:]
 
-        badids = np.where(ids[:,-1] != ord(' '))[0]
+        badids = np.where(ids[:, -1] != ord(" "))[0]
         if len(badids) != 0:
-            raise ValueError("Sequence {} has wrong id field length. Expected "
-                             "id length {}".format(pos + 1 + badids[0], idL))
+            raise ValueError(
+                "Sequence {} has wrong id field length. Expected "
+                "id length {}".format(pos + 1 + badids[0], idL)
+            )
 
-        ids = ids.flatten().view('S{}'.format(ids.shape[1]))
+        ids = ids.flatten().view("S{}".format(ids.shape[1]))
         ids = np.char.strip(ids)
 
     return dat, ids
 
+
 def translateascii_python(seqmat, alpha, pos):
-    #set up translation table
-    nucNums = np.full(256, 255, np.uint8)  #maps from ascii to base number
+    # set up translation table
+    nucNums = np.full(256, 255, np.uint8)  # maps from ascii to base number
     nucNums[np.frombuffer(alpha, np.uint8)] = np.arange(len(alpha))
 
     # fancy indexing casts indices to intp and makes a copy => slowdown.
@@ -208,13 +224,19 @@ def translateascii_python(seqmat, alpha, pos):
 
         badchar = chr(seqmat[badline, badcol])
 
-        if badchar == '\n':
-            raise ValueError("Sequence {} has length {} (expected {})".format(
-                             badline + pos + 1, badcol, L))
+        if badchar == "\n":
+            raise ValueError(
+                "Sequence {} has length {} (expected {})".format(
+                    badline + pos + 1, badcol, L
+                )
+            )
         else:
-            raise ValueError("Invalid residue '{}' in sequence {} position "
-                             "{}".format(badchar, badline + pos + 1, badcol))
+            raise ValueError(
+                "Invalid residue '{}' in sequence {} position "
+                "{}".format(badchar, badline + pos + 1, badcol)
+            )
     return seqs
+
 
 try:
     import mi3gpu.utils.seqtools as seqtools
@@ -223,60 +245,62 @@ try:
         # translates in-place. seqmat must be writeable
         seqtools.translateascii(seqmat, alpha, pos)
         return seqmat
+
 except:
     translateascii = translateascii_python
 
+
 def loadSeqsChunked(f, alpha=None, chunksize=None):
-    #read header
+    # read header
     pos = f.tell()
     header = []
     l = f.readline()
-    while l.isspace() or l.startswith(b'#'):
+    while l.isspace() or l.startswith(b"#"):
         if not l.isspace():
-            header.append(l[1:].decode('utf-8'))
+            header.append(l[1:].decode("utf-8"))
         pos = f.tell()
         l = f.readline()
     f.seek(pos)
 
     # get length of first sequence line (should be same for all)
-    firstline = l.rstrip(b'\n')
+    firstline = l.rstrip(b"\n")
     lineL = len(firstline)
 
     # each line may be a sequence id, whitespace, then the sequence
-    idL = firstline.rfind(b' ') + 1
+    idL = firstline.rfind(b" ") + 1
 
-    #get alphabet if in header
+    # get alphabet if in header
     if alpha is None:
         for h in header:
             if h.startswith("PARAM"):
-               param = json.loads(line[len('PARAM '):])
-               alpha = param.get('alpha', None)
+                param = json.loads(line[len("PARAM ") :])
+                alpha = param.get("alpha", None)
         if alpha is None:
             raise Exception("Could not determine alphabet")
     if isinstance(alpha, str):
-        alpha = alpha.encode('ascii')
+        alpha = alpha.encode("ascii")
 
     yield header, alpha
 
-    #load in chunks
+    # load in chunks
     if chunksize is None:
-        chunksize = 4*1024*1024//(lineL+1)  # about 4MB
-    buf = np.empty(chunksize*(lineL+1), dtype=np.uint8)
+        chunksize = 4 * 1024 * 1024 // (lineL + 1)  # about 4MB
+    buf = np.empty(chunksize * (lineL + 1), dtype=np.uint8)
 
     pos = 0
     ids = None
     while True:
-        dat = readbytes(f, chunksize*(lineL+1), buf)
+        dat = readbytes(f, chunksize * (lineL + 1), buf)
 
         # simple attempt to account for stockholm terminator
-        if dat.size > 2 and dat[-2] == ord('/'):
-            if dat[-1] == ord('/'):
+        if dat.size > 2 and dat[-2] == ord("/"):
+            if dat[-1] == ord("/"):
                 dat = dat[:-2]
-            elif dat.size > 3 and dat[-1] == ord('\n') and  dat[-3] == ord('/'):
+            elif dat.size > 3 and dat[-1] == ord("\n") and dat[-3] == ord("/"):
                 dat = dat[:-3]
 
-        if dat.size != chunksize*(lineL+1):
-            break # reached end of file
+        if dat.size != chunksize * (lineL + 1):
+            break  # reached end of file
 
         seqmat, ids = chunk_firstpass(dat, idL, lineL, pos)
         seqs = translateascii(seqmat.copy(), alpha, pos)
@@ -286,36 +310,36 @@ def loadSeqsChunked(f, alpha=None, chunksize=None):
     if dat.size == 0:
         return
 
-    #process last partial chunk if present
+    # process last partial chunk if present
 
-    #correct for extra/missing newline at end of file
-    if (dat.size % (lineL+1)) != 0:
-        if dat[-1] == ord("\n") and ((dat.size-1) % (lineL+1)) == 0:
+    # correct for extra/missing newline at end of file
+    if (dat.size % (lineL + 1)) != 0:
+        if dat[-1] == ord("\n") and ((dat.size - 1) % (lineL + 1)) == 0:
             # remove one newline at eof
             dat = dat[:-1]
-        elif ((dat.size+1) % (lineL+1)) == 0:
+        elif ((dat.size + 1) % (lineL + 1)) == 0:
             # add one newline at eof. Use the fact that dat is a view of buf
             # and that buf is guaranteed to have space up to multiple of lineL+1
-            dat = buf[:dat.size+1]
+            dat = buf[: dat.size + 1]
             dat[-1] = np.uint8(ord("\n"))
         else:
             # some kind of problem with sequences.
             # try processing dat up to last multiple of lineL+1 to get a good
             # exception message.
-            line_mul = dat.size - (dat.size % (lineL+1))
+            line_mul = dat.size - (dat.size % (lineL + 1))
             seqmat, ids = chunk_firstpass(dat[:line_mul], idL, lineL, pos)
             # if previous line didn't raise, raise now. Must be problem at eof.
-            bad_tail = (b"".join(dat[line_mul:].view("S1"))).decode('utf-8')
-            raise Exception("Unexpected characters at eof: {}".format(
-                                                                repr(bad_tail)))
-
+            bad_tail = (b"".join(dat[line_mul:].view("S1"))).decode("utf-8")
+            raise Exception("Unexpected characters at eof: {}".format(repr(bad_tail)))
 
     seqmat, ids = chunk_firstpass(dat, idL, lineL, pos)
     seqs = translateascii(seqmat, alpha, pos)
     yield seqs, ids
 
-def writeSeqs(fn, seqs, alpha=prot_alpha, ids=None,
-              headers=None, write_param=False, zipf=None):
+
+def writeSeqs(
+    fn, seqs, alpha=prot_alpha, ids=None, headers=None, write_param=False, zipf=None
+):
     """
     Write sequences to a file.
 
@@ -338,62 +362,64 @@ def writeSeqs(fn, seqs, alpha=prot_alpha, ids=None,
         Whether to compress the file using bzip2
     """
     if isinstance(alpha, str):
-        alpha = alpha.encode('ascii')
+        alpha = alpha.encode("ascii")
 
     # reformat ids to be whitespace-padded if given
     idL = 0
     if ids is not None:
-        ids = [x if isinstance(x, bytes) else x.encode('utf-8') for x in ids]
+        ids = [x if isinstance(x, bytes) else x.encode("utf-8") for x in ids]
         idL = max(len(x) for x in ids) + 1
-        ids = np.array([x.ljust(idL) for x in ids], dtype='S')
-        ids = ids[:,None].view('u1')
+        ids = np.array([x.ljust(idL) for x in ids], dtype="S")
+        ids = ids[:, None].view("u1")
 
     # set up buffers for translation to ascii
     seqL = seqs.shape[1]
     bufL = idL + seqL + 1
-    chunksize = 4*1024*1024//(bufL+1)
+    chunksize = 4 * 1024 * 1024 // (bufL + 1)
     buf = np.empty((chunksize, bufL), dtype=np.uint8)
-    buf[:,-1] = ord('\n') # add newline at end of each row
+    buf[:, -1] = ord("\n")  # add newline at end of each row
 
     # prepare for alphabet translation.
     # could be sped up: s is uneccesarily cast to intp in 'take' below
     alphabet = np.array(list(alpha), dtype=np.uint8)
 
-    with Opener(fn, 'wb', zipf) as f:
+    with Opener(fn, "wb", zipf) as f:
         if write_param:
-            param = {'alpha': alpha.decode('utf-8')}
-            f.write('#PARAM {0}\n'.format(json.dumps(param)).encode('utf-8'))
+            param = {"alpha": alpha.decode("utf-8")}
+            f.write("#PARAM {0}\n".format(json.dumps(param)).encode("utf-8"))
         if headers != None:
-            headers = [h if h.startswith('#') else '#' + h for h in headers]
+            headers = [h if h.startswith("#") else "#" + h for h in headers]
             f.write("\n".join(headers))
 
-        i = -chunksize # in case len(seqs) < chunksize
-        for i in range(0,seqs.shape[0]-chunksize, chunksize):
+        i = -chunksize  # in case len(seqs) < chunksize
+        for i in range(0, seqs.shape[0] - chunksize, chunksize):
             if idL != 0:
-                buf[:,:idL] = ids[i:i+chunksize,:]
-            np.take(alphabet, seqs[i:i+chunksize,:], out=buf[:,idL:-1])
+                buf[:, :idL] = ids[i : i + chunksize, :]
+            np.take(alphabet, seqs[i : i + chunksize, :], out=buf[:, idL:-1])
             f.write(buf)
 
         # process final chunk
-        buf = buf[:seqs.shape[0]-i-chunksize,:]
+        buf = buf[: seqs.shape[0] - i - chunksize, :]
         if idL != 0:
-            buf[:,:idL] = ids[i+chunksize:,:]
-        np.take(alphabet, seqs[i+chunksize:,:], out=buf[:,idL:-1])
+            buf[:, :idL] = ids[i + chunksize :, :]
+        np.take(alphabet, seqs[i + chunksize :, :], out=buf[:, idL:-1])
         f.write(buf)
+
 
 def getCounts(seqs, q):
     """
     Helper function which computes the counts of each letter at each position.
     """
     nSeq, seqLen = seqs.shape
-    bins = np.arange(q+1, dtype='int')
-    counts = np.zeros((seqLen, q), dtype='int')
+    bins = np.arange(q + 1, dtype="int")
+    counts = np.zeros((seqLen, q), dtype="int")
     for i in range(seqLen):
-        counts[i,:] = histogram(seqs[:,i], bins)[0]
-    return counts # index as [pos, res]
+        counts[i, :] = histogram(seqs[:, i], bins)[0]
+    return counts  # index as [pos, res]
+
 
 def getFreqs(seq, q):
     """
     Helper function which computes the univariate marginals of an MSA
     """
-    return getCounts(seq, q).astype('float')//seq.shape[0]
+    return getCounts(seq, q).astype("float") // seq.shape[0]
