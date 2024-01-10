@@ -18,7 +18,9 @@ venv/
 *.sqlite
 *.csv
 *.pkl
-# model file may be up to your scrutiny.
+*.k
+*.h5
+*.png
 
 # Environment variables
 .env
